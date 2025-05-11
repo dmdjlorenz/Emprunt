@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
     <title>Calculatrice d'Emprunt Immobilier</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icone.png">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -33,15 +36,38 @@
         }
         input[type="range"] {
             width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
         }
         input[type="number"] {
-            width: 100px;
+            width: 80px;
             padding: 5px;
             font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             margin-left: 10px;
         }
         .lock-btn {
-            margin-top: 5px;
+            margin-left: 10px;
             padding: 5px 10px;
             font-size: 14px;
             cursor: pointer;
@@ -49,52 +75,61 @@
             color: white;
             border: none;
             border-radius: 4px;
+            touch-action: manipulation;
         }
         .lock-btn.locked {
             background-color: #dc3545;
         }
         .results {
             margin-top: 20px;
+            font-size: 16px;
+        }
+        .result-item {
+            margin: 10px 0;
+        }
+        @media (max-width: 400px) {
+            .sliders {
+                padding: 10px;
+            }
+            label {
+                font-size: 14px;
+            }
+            .lock-btn, input[type="number"] {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="sliders">
-        <h1 style="text-align: center;">Calculatrice d'Emprunt</h1>
-
+        <h1 style="font-size: 20px; text-align: center;">Calculatrice d'Emprunt</h1>
         <div class="slider-container">
             <label>Taux d'intérêt (%): <span id="interestValue">2.00</span></label>
             <input type="range" id="interest" min="0" max="10" step="0.01" value="2">
             <button class="lock-btn" onclick="lockSlider('interest')">Bloquer</button>
         </div>
-
         <div class="input-container">
-            <label>Taux d'assurance (%): 
-                <input type="number" id="insurance" min="0" max="10" step="0.01" value="0.36">
-            </label>
+            <label>Taux d'assurance (%): <input type="number" id="insurance" min="0" max="10" step="0.01" value="0.36"></label>
         </div>
-
         <div class="slider-container">
             <label>Montant de l'emprunt: <span id="amountValue">100000 €</span></label>
             <input type="range" id="amount" min="0" max="2000000" step="1000" value="100000">
             <button class="lock-btn" onclick="lockSlider('amount')">Bloquer</button>
         </div>
-
         <div class="slider-container">
             <label>Durée (ans): <span id="yearsValue">15</span></label>
             <input type="range" id="years" min="0" max="25" step="1" value="15">
             <button class="lock-btn" onclick="lockSlider('years')">Bloquer</button>
         </div>
-
         <div class="slider-container">
             <label>Mensualité: <span id="monthlyValue">0 €</span></label>
             <input type="range" id="monthly" min="0" max="50000" step="10" value="0">
             <button class="lock-btn" onclick="lockSlider('monthly')">Bloquer</button>
         </div>
-
         <div class="results">
-            <div>Coût de l'emprunt: <span id="interestCost">0</span> €</div>
-            <div>Coût total du crédit: <span id="totalCost">0</span> €</div>
+            <div class="result-item">Coût de l'emprunt: <span id="interestCost">0</span> €</div>
+            <div class="result-item">Coût total du crédit: <span id="totalCost">0</span> €</div>
         </div>
     </div>
 
@@ -105,6 +140,9 @@
             years: { id: 'years', valueId: 'yearsValue', locked: false },
             monthly: { id: 'monthly', valueId: 'monthlyValue', locked: false }
         };
+
+        let previousValues = getSliderValues(); // Stocker les valeurs précédentes
+        let minAllowedValues = { monthly: 0, interest: 0, insurance: 0, amount: 0, years: 0 }; // Valeurs minimales autorisées
 
         function lockSlider(sliderId) {
             sliders[sliderId].locked = !sliders[sliderId].locked;
@@ -117,7 +155,7 @@
         function getSliderValues() {
             return {
                 interest: parseFloat(document.getElementById('interest').value),
-                insurance: parseFloat(document.getElementById('insurance').value),
+                insurance: parseFloat(document.getElementById('insurance').value) || 0,
                 amount: parseInt(document.getElementById('amount').value),
                 years: parseInt(document.getElementById('years').value),
                 monthly: parseInt(document.getElementById('monthly').value)
@@ -133,48 +171,417 @@
             return Math.round(loanPayment + insurancePayment);
         }
 
+        function calculateAmount(monthly, rate, insuranceRate, years) {
+            if (years === 0 || monthly === 0) return 0;
+            const monthlyRate = rate / 100 / 12;
+            const totalPayments = years * 12;
+            let amount = 100000; // Valeur initiale pour itération
+            for (let i = 0; i < 10; i++) {
+                const insurancePayment = (amount * insuranceRate / 100) / 12;
+                const loanMonthly = monthly - insurancePayment;
+                amount = rate === 0 ? loanMonthly * totalPayments : loanMonthly * (1 - Math.pow(1 + monthlyRate, -totalPayments)) / monthlyRate;
+            }
+            return Math.round(amount);
+        }
+
+        function calculateYears(amount, monthly, rate, insuranceRate) {
+            if (monthly === 0 || amount === 0) return 0;
+            const monthlyRate = rate / 100 / 12;
+            const insurancePayment = (amount * insuranceRate / 100) / 12;
+            const loanMonthly = monthly - insurancePayment;
+            if (rate === 0) return Math.round(amount / loanMonthly / 12);
+            return Math.round(-Math.log(1 - (amount * monthlyRate) / loanMonthly) / (12 * Math.log(1 + monthlyRate)));
+        }
+
+        function calculateInterest(amount, monthly, insuranceRate, years) {
+            if (years === 0 || monthly === 0 || amount === 0) return 0;
+            const totalPayments = years * 12;
+            const insurancePayment = (amount * insuranceRate / 100) / 12;
+            const loanMonthly = monthly - insurancePayment;
+            const target = amount / loanMonthly;
+            let low = 0, high = 10, rate = 5;
+            for (let i = 0; i < 100; i++) {
+                const monthlyRate = rate / 100 / 12;
+                const computed = (1 - Math.pow(1 + monthlyRate, -totalPayments)) / monthlyRate;
+                if (Math.abs(computed - target) < 0.01) break;
+                if (computed > target) low = rate;
+                else high = rate;
+                rate = (low + high) / 2;
+            }
+            return rate;
+        }
+
         function calculateBorrowingCost(values) {
             const totalPayments = values.monthly * values.years * 12;
             const insuranceCost = values.amount * (values.insurance / 100) * values.years;
             const interestCost = totalPayments - values.amount - insuranceCost;
-            return { interestCost: Math.round(interestCost), totalCost: Math.round(totalPayments) };
+            return interestCost + insuranceCost;
+        }
+
+        function adjustSliderForZeroCost(changedSlider, values, previousValues) {
+            let low, high, targetValue;
+            const tolerance = 1; // Tolérance pour un coût proche de 0 (€)
+
+            if (changedSlider === 'interest') {
+                low = 0;
+                high = values.interest;
+            } else if (changedSlider === 'insurance') {
+                low = 0;
+                high = values.insurance;
+            } else if (changedSlider === 'amount') {
+                low = 0;
+                high = values.amount;
+            } else if (changedSlider === 'years') {
+                low = 0;
+                high = values.years;
+            } else if (changedSlider === 'monthly') {
+                low = 0;
+                high = values.monthly;
+            }
+
+            // Recherche binaire pour trouver la valeur où le coût est ~0
+            for (let i = 0; i < 100; i++) {
+                targetValue = (low + high) / 2;
+                let testValues = { ...values };
+
+                if (changedSlider === 'interest') {
+                    testValues.interest = targetValue;
+                } else if (changedSlider === 'insurance') {
+                    testValues.insurance = targetValue;
+                } else if (changedSlider === 'amount') {
+                    testValues.amount = Math.round(targetValue);
+                } else if (changedSlider === 'years') {
+                    testValues.years = Math.round(targetValue);
+                } else if (changedSlider === 'monthly') {
+                    testValues.monthly = Math.round(targetValue);
+                }
+
+                // Recalculer les valeurs dépendantes
+                const lockedSliders = Object.keys(sliders).filter(key => sliders[key].locked);
+                if (lockedSliders.length === 0) {
+                    if (changedSlider === 'monthly') {
+                        testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                    } else {
+                        testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                    }
+                } else if (lockedSliders.length === 1) {
+                    if (lockedSliders.includes('interest')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'amount' || changedSlider === 'years' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('amount')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.years = calculateYears(testValues.amount, testValues.monthly, testValues.interest, testValues.insurance);
+                        } else if (changedSlider === 'years' || changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('years')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'amount' || changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('monthly')) {
+                        if (changedSlider === 'amount') {
+                            testValues.years = calculateYears(testValues.amount, testValues.monthly, testValues.interest, testValues.insurance);
+                        } else if (changedSlider === 'years') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    }
+                } else if (lockedSliders.length === 2) {
+                    if (lockedSliders.includes('interest') && lockedSliders.includes('years')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'amount' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('interest') && lockedSliders.includes('amount')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.years = calculateYears(testValues.amount, testValues.monthly, testValues.interest, testValues.insurance);
+                        } else if (changedSlider === 'years' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('interest') && lockedSliders.includes('monthly')) {
+                        if (changedSlider === 'amount') {
+                            testValues.years = calculateYears(testValues.amount, testValues.monthly, testValues.interest, testValues.insurance);
+                        } else if (changedSlider === 'years' || changedSlider === 'insurance') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('amount') && lockedSliders.includes('years')) {
+                        if (changedSlider === 'monthly') {
+                            testValues.interest = calculateInterest(testValues.amount, testValues.monthly, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.monthly = calculateMonthlyPayment(testValues.amount, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    } else if (lockedSliders.includes('amount') && lockedSliders.includes('monthly')) {
+                        if (changedSlider === 'years') {
+                            testValues.interest = calculateInterest(testValues.amount, testValues.monthly, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.years = calculateYears(testValues.amount, testValues.monthly, testValues.interest, testValues.insurance);
+                        }
+                    } else if (lockedSliders.includes('years') && lockedSliders.includes('monthly')) {
+                        if (changedSlider === 'amount') {
+                            testValues.interest = calculateInterest(testValues.amount, testValues.monthly, testValues.insurance, testValues.years);
+                        } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.amount = calculateAmount(testValues.monthly, testValues.interest, testValues.insurance, testValues.years);
+                        }
+                    }
+                } else if (lockedSliders.length === 3) {
+                    if (lockedSliders.includes('amount') && lockedSliders.includes('years') && lockedSliders.includes('monthly')) {
+                        if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                            testValues.interest = calculateInterest(testValues.amount, testValues.monthly, testValues.insurance, testValues.years);
+                        }
+                    }
+                }
+
+                const cost = calculateBorrowingCost(testValues);
+                if (Math.abs(cost) < tolerance) break;
+                if (cost > 0) {
+                    if (changedSlider === 'monthly') high = targetValue;
+                    else low = targetValue;
+                } else {
+                    if (changedSlider === 'monthly') low = targetValue;
+                    else high = targetValue;
+                }
+            }
+
+            // Appliquer la valeur ajustée
+            if (changedSlider === 'interest') {
+                values.interest = targetValue;
+                minAllowedValues.interest = targetValue;
+            } else if (changedSlider === 'insurance') {
+                values.insurance = targetValue;
+                minAllowedValues.insurance = targetValue;
+            } else if (changedSlider === 'amount') {
+                values.amount = Math.round(targetValue);
+                minAllowedValues.amount = Math.round(targetValue);
+            } else if (changedSlider === 'years') {
+                values.years = Math.round(targetValue);
+                minAllowedValues.years = Math.round(targetValue);
+            } else if (changedSlider === 'monthly') {
+                values.monthly = Math.round(targetValue);
+                minAllowedValues.monthly = Math.round(targetValue);
+            }
+
+            return values;
         }
 
         function updateCalculations(changedSlider) {
-            const values = getSliderValues();
+            const lockedSliders = Object.keys(sliders).filter(key => sliders[key].locked);
+            let values = getSliderValues();
+            let newValues = { ...values };
 
-            // Affichage des valeurs sliders
-            if (changedSlider === 'interest') {
-                document.getElementById('interestValue').textContent = values.interest.toFixed(2);
-            } else if (changedSlider === 'amount') {
-                document.getElementById('amountValue').textContent = values.amount + " €";
-            } else if (changedSlider === 'years') {
-                document.getElementById('yearsValue').textContent = values.years;
-            } else if (changedSlider === 'monthly') {
-                document.getElementById('monthlyValue').textContent = values.monthly + " €";
+            // Vérifier si la modification est dans le sens de la réduction du coût
+            let isCostReducing = false;
+            if (changedSlider === 'interest' && values.interest < previousValues.interest) {
+                isCostReducing = true;
+            } else if (changedSlider === 'insurance' && values.insurance < previousValues.insurance) {
+                isCostReducing = true;
+            } else if (changedSlider === 'amount' && values.amount < previousValues.amount) {
+                isCostReducing = true;
+            } else if (changedSlider === 'years' && values.years < previousValues.years) {
+                isCostReducing = true;
+            } else if (changedSlider === 'monthly' && values.monthly < previousValues.monthly) {
+                isCostReducing = true;
             }
 
-            if (!sliders.monthly.locked) {
-                values.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
-                document.getElementById('monthly').value = values.monthly;
-                document.getElementById('monthlyValue').textContent = values.monthly + " €";
+            // Vérifier si la modification est bloquée par les limites minimales
+            if (isCostReducing) {
+                if (changedSlider === 'interest' && values.interest < minAllowedValues.interest) {
+                    newValues.interest = minAllowedValues.interest;
+                    updateSliders(newValues);
+                    updateResults(newValues);
+                    return;
+                } else if (changedSlider === 'insurance' && values.insurance < minAllowedValues.insurance) {
+                    newValues.insurance = minAllowedValues.insurance;
+                    document.getElementById('insurance').value = minAllowedValues.insurance.toFixed(2);
+                    updateSliders(newValues);
+                    updateResults(newValues);
+                    return;
+                } else if (changedSlider === 'amount' && values.amount < minAllowedValues.amount) {
+                    newValues.amount = minAllowedValues.amount;
+                    updateSliders(newValues);
+                    updateResults(newValues);
+                    return;
+                } else if (changedSlider === 'years' && values.years < minAllowedValues.years) {
+                    newValues.years = minAllowedValues.years;
+                    updateSliders(newValues);
+                    updateResults(newValues);
+                    return;
+                } else if (changedSlider === 'monthly' && values.monthly < minAllowedValues.monthly) {
+                    newValues.monthly = minAllowedValues.monthly;
+                    updateSliders(newValues);
+                    updateResults(newValues);
+                    return;
+                }
             }
 
-            const costs = calculateBorrowingCost(values);
-            document.getElementById('interestCost').textContent = costs.interestCost;
-            document.getElementById('totalCost').textContent = costs.totalCost;
+            // Appliquer la logique standard
+            if (lockedSliders.length === 0) {
+                if (changedSlider === 'monthly') {
+                    newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                } else {
+                    newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                }
+            } else if (lockedSliders.length === 1) {
+                if (lockedSliders.includes('interest')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    } else if (changedSlider === 'amount' || changedSlider === 'years' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('amount')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.years = calculateYears(values.amount, values.monthly, values.interest, values.insurance);
+                    } else if (changedSlider === 'years' || changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('years')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    } else if (changedSlider === 'amount' || changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('monthly')) {
+                    if (changedSlider === 'amount') {
+                        newValues.years = calculateYears(values.amount, values.monthly, values.interest, values.insurance);
+                    } else if (changedSlider === 'years') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    }
+                }
+            } else if (lockedSliders.length === 2) {
+                if (lockedSliders.includes('interest') && lockedSliders.includes('years')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    } else if (changedSlider === 'amount' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('interest') && lockedSliders.includes('amount')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.years = calculateYears(values.amount, values.monthly, values.interest, values.insurance);
+                    } else if (changedSlider === 'years' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('interest') && lockedSliders.includes('monthly')) {
+                    if (changedSlider === 'amount') {
+                        newValues.years = calculateYears(values.amount, values.monthly, values.interest, values.insurance);
+                    } else if (changedSlider === 'years' || changedSlider === 'insurance') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('amount') && lockedSliders.includes('years')) {
+                    if (changedSlider === 'monthly') {
+                        newValues.interest = calculateInterest(values.amount, values.monthly, values.insurance, values.years);
+                    } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.monthly = calculateMonthlyPayment(values.amount, values.interest, values.insurance, values.years);
+                    }
+                } else if (lockedSliders.includes('amount') && lockedSliders.includes('monthly')) {
+                    if (changedSlider === 'years') {
+                        newValues.interest = calculateInterest(values.amount, values.monthly, values.insurance, values.years);
+                    } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.years = calculateYears(values.amount, values.monthly, values.interest, values.insurance);
+                    }
+                } else if (lockedSliders.includes('years') && lockedSliders.includes('monthly')) {
+                    if (changedSlider === 'amount') {
+                        newValues.interest = calculateInterest(values.amount, values.monthly, values.insurance, values.years);
+                    } else if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.amount = calculateAmount(values.monthly, values.interest, values.insurance, values.years);
+                    }
+                }
+            } else if (lockedSliders.length === 3) {
+                if (lockedSliders.includes('amount') && lockedSliders.includes('years') && lockedSliders.includes('monthly')) {
+                    if (changedSlider === 'interest' || changedSlider === 'insurance') {
+                        newValues.interest = calculateInterest(values.amount, values.monthly, values.insurance, values.years);
+                    }
+                }
+            }
+
+            // Vérifier le coût de l'emprunt
+            let borrowingCost = calculateBorrowingCost(newValues);
+            if (borrowingCost < 0 && isCostReducing) {
+                // Ajuster le curseur pour un coût proche de 0
+                newValues = adjustSliderForZeroCost(changedSlider, newValues, previousValues);
+            }
+
+            // Mettre à jour les valeurs précédentes
+            previousValues = { ...newValues };
+
+            updateSliders(newValues);
+            updateResults(newValues);
         }
 
-        // Ajout des écouteurs pour chaque slider
-        Object.keys(sliders).forEach(key => {
-            document.getElementById(key).addEventListener('input', () => updateCalculations(key));
+        function updateSliders(values) {
+            document.getElementById('interest').value = Math.min(values.interest, 10);
+            document.getElementById('amount').value = Math.min(values.amount, 2000000);
+            document.getElementById('years').value = Math.min(values.years, 25);
+            document.getElementById('monthly').value = Math.min(values.monthly, 50000);
+
+            document.getElementById('insurance').value = Math.min(values.insurance, 10).toFixed(2);
+
+            document.getElementById('interestValue').textContent = values.interest.toFixed(2);
+            document.getElementById('amountValue').textContent = values.amount + ' €';
+            document.getElementById('yearsValue').textContent = values.years;
+            document.getElementById('monthlyValue').textContent = values.monthly + ' €';
+        }
+
+        function updateResults(values) {
+            const totalPayments = values.monthly * values.years * 12;
+            const insuranceCost = values.amount * (values.insurance / 100) * values.years;
+            const interestCost = totalPayments - values.amount - insuranceCost;
+            const totalCost = totalPayments;
+            document.getElementById('interestCost').textContent = Math.round(interestCost + insuranceCost);
+            document.getElementById('totalCost').textContent = Math.round(totalCost);
+        }
+
+        Object.keys(sliders).forEach(slider => {
+            document.getElementById(sliders[slider].id).addEventListener('input', () => {
+                if (!sliders[slider].locked) {
+                    const currentValue = parseFloat(document.getElementById(sliders[slider].id).value);
+                    if (slider === 'monthly' && currentValue < minAllowedValues.monthly) {
+                        document.getElementById(sliders[slider].id).value = minAllowedValues.monthly;
+                        return;
+                    } else if (slider === 'interest' && currentValue < minAllowedValues.interest) {
+                        document.getElementById(sliders[slider].id).value = minAllowedValues.interest;
+                        return;
+                    } else if (slider === 'amount' && currentValue < minAllowedValues.amount) {
+                        document.getElementById(sliders[slider].id).value = minAllowedValues.amount;
+                        return;
+                    } else if (slider === 'years' && currentValue < minAllowedValues.years) {
+                        document.getElementById(sliders[slider].id).value = minAllowedValues.years;
+                        return;
+                    }
+                    updateCalculations(slider);
+                }
+            });
         });
 
-        // ✅ Correction principale : écouteur sur le champ d'assurance
-        document.getElementById('insurance').addEventListener('input', () => updateCalculations('insurance'));
+        document.getElementById('insurance').addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value) || 0;
+            // Vérifier si la valeur saisie respecte la limite minimale
+            if (value < minAllowedValues.insurance) {
+                e.target.value = minAllowedValues.insurance.toFixed(2);
+                updateCalculations('insurance');
+                return;
+            }
+            // Limiter la valeur entre 0 et 10 avec 2 décimales
+            value = Math.max(0, Math.min(10, value));
+            e.target.value = value.toFixed(2);
+            updateCalculations('insurance');
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service Worker registration failed:', err));
+            });
+        }
 
         // Initialisation
-        updateCalculations('amount');
+        updateCalculations('interest');
     </script>
 </body>
 </html>
