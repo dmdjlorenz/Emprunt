@@ -239,7 +239,7 @@
                 high = values.monthly;
             }
 
-            // Recherche binaire pour trouver la valeur où le coût est ~0
+            // Recherche binaire pour trouver Сумма, при которой стоимость ~0
             for (let i = 0; i < 100; i++) {
                 targetValue = (low + high) / 2;
                 let testValues = { ...values };
@@ -520,7 +520,6 @@
             document.getElementById('amount').value = Math.min(values.amount, 2000000);
             document.getElementById('years').value = Math.min(values.years, 25);
             document.getElementById('monthly').value = Math.min(values.monthly, 50000);
-
             document.getElementById('insurance').value = Math.min(values.insurance, 10).toFixed(2);
 
             document.getElementById('interestValue').textContent = values.interest.toFixed(2);
@@ -542,19 +541,6 @@
             document.getElementById(sliders[slider].id).addEventListener('input', () => {
                 if (!sliders[slider].locked) {
                     const currentValue = parseFloat(document.getElementById(sliders[slider].id).value);
-                    if (slider === 'monthly' && currentValue < minAllowedValues.monthly) {
-                        document.getElementById(sliders[slider].id).value = minAllowedValues.monthly;
-                        return;
-                    } else if (slider === 'interest' && currentValue < minAllowedValues.interest) {
-                        document.getElementById(sliders[slider].id).value = minAllowedValues.interest;
-                        return;
-                    } else if (slider === 'amount' && currentValue < minAllowedValues.amount) {
-                        document.getElementById(sliders[slider].id).value = minAllowedValues.amount;
-                        return;
-                    } else if (slider === 'years' && currentValue < minAllowedValues.years) {
-                        document.getElementById(sliders[slider].id).value = minAllowedValues.years;
-                        return;
-                    }
                     updateCalculations(slider);
                 }
             });
@@ -562,12 +548,6 @@
 
         document.getElementById('insurance').addEventListener('input', (e) => {
             let value = parseFloat(e.target.value) || 0;
-            // Vérifier si la valeur saisie respecte la limite minimale
-            if (value < minAllowedValues.insurance) {
-                e.target.value = minAllowedValues.insurance.toFixed(2);
-                updateCalculations('insurance');
-                return;
-            }
             // Limiter la valeur entre 0 et 10 avec 2 décimales
             value = Math.max(0, Math.min(10, value));
             e.target.value = value.toFixed(2);
